@@ -1,0 +1,21 @@
+[package]
+name = "xsoc-tss-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["XSOC Corp"]
+description = "Promoted threshold primitive for XSOC-QSIG modes: one-time linear threshold authorization over a prime field"
+license = "Proprietary"
+publish = false
+
+# Confirm the arkworks line against the toolchain pinned in Phase 0. The 0.4 line
+# carries the PrimeField, UniformRand, and field-arithmetic surface the reference
+# uses; if you pin a different line, align the use imports in src/lib.rs.
+[dependencies]
+ark-ff = "0.4"
+ark-std = "0.4"
+sha2 = "0.10"
+rand_core = "0.6"
+
+[dev-dependencies]
+ark-bn254 = "0.4"
+rand_chacha = "0.3"

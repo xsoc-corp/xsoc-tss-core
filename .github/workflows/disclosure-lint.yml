@@ -1,0 +1,9 @@
+name: disclosure-lint
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: forbidden terms
+        run: bash scripts/disclosure-lint.sh
