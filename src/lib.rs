@@ -24,7 +24,8 @@
 
 #![forbid(unsafe_code)]
 
-use ark_ff::PrimeField;
+#[allow(unused_imports)] // UniformRand backs F::rand in shamir_split; the unused-import lint mis-reports it through arkworks supertraits.
+use ark_ff::{PrimeField, UniformRand};
 use rand_core::RngCore;
 use sha2::{Digest, Sha256};
 
