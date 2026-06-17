@@ -12,10 +12,13 @@
 //!     source-agnostic. XSOC-QSIG/TQ injects an RNG seeded by
 //!     xsoc_sig_core::wave_derive, making setup deterministic and DSKAG-rooted.
 //!   - The post-quantum on-chain binding is the `LinearCommit` trait below, a
-//!     real interface the gate programs against. Its concrete module-SIS instance
-//!     and parameters are selected in Phase 1 with the cryptographer of record.
-//!     A trait is a contract, not a stub; a fake impl would be the stub, so none
-//!     is shipped.
+//!     real interface the gate programs against. A generic, parameter-injected
+//!     reference instance lives in the `module_sis` module: the BDLOP module-SIS
+//!     commitment, with ring degree, dimensions, norm bound, and CRS all supplied
+//!     by the caller. The production instance, the ratified parameters and the
+//!     DSKAG-seeded CRS, is selected in Phase 1 with the cryptographer of record
+//!     and lives outside this crate. The reference fixes no instance, so it is the
+//!     construction and not the stub a hardcoded parameter set would be.
 //!
 //! Field is generic over `ark_ff::PrimeField`. Dependencies: ark-ff, ark-std,
 //! sha2, rand_core.
@@ -188,10 +191,13 @@ pub fn verify_consistency<F: PrimeField>(points: &[(F, F)], t: usize) -> bool {
 /// `combine(&[(c_l, commit(s_l))])`, which by linearity equals `commit(A)`.
 /// Binding rests on module-SIS, which is post-quantum.
 ///
-/// This is a contract, not an implementation. The concrete module-SIS instance,
-/// its modulus, dimensions, and norm bounds, is selected in Phase 1. No reference
-/// instance is shipped here, because a parameter-free placeholder would be a stub
-/// and would mislead the security analysis.
+/// This is the contract. A generic, parameter-injected instance is provided in
+/// the `module_sis` module, where the modulus, dimensions, norm bound, and CRS
+/// are constructor arguments rather than hardcoded. The production instance, its
+/// ratified parameters and DSKAG-seeded CRS, is selected in Phase 1 with the
+/// cryptographer of record and lives outside this crate. A parameter-free
+/// placeholder would be the stub that misleads the security analysis; a
+/// parameterized construction is not.
 pub trait LinearCommit<F: PrimeField> {
     /// An opaque commitment value.
     type Commitment: Clone + PartialEq;
@@ -206,6 +212,8 @@ pub trait LinearCommit<F: PrimeField> {
     /// Verify that `c` commits to `value` under `opening`.
     fn verify(&self, c: &Self::Commitment, value: F, opening: &[u8]) -> bool;
 }
+
+pub mod module_sis;
 
 // -- Tests -----------------------------------------------------------------
 
