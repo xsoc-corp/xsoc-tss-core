@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["XSOC Corp"]
 description = "Promoted threshold primitive for XSOC-QSIG modes: one-time linear threshold authorization over a prime field"
-license = "Proprietary"
+license = "Apache-2.0"
 publish = false
 
 # Confirm the arkworks line against the toolchain pinned in Phase 0. The 0.4 line

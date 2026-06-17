@@ -1,8 +1,36 @@
 # XSOC-QSIG/TQ: Threshold Quorum Authorization
 
-Design and implementation plan. CONTROLLED / NDA. ECCN 5D002.C1. CAGE 8ZXJ8.
-Author of record: Richard Blech, XSOC Corp. This document is a prior-art artifact;
-timestamp it on Zenodo before any external disclosure, including peer conversations.
+Design and implementation plan. Public release. XSOC Corp. Author: Richard Blech,
+ORCID 0009-0003-4540-2134. Companion to the XSOC-QSIG specification,
+https://doi.org/10.5281/zenodo.19639166.
+
+## What is public and what is proprietary
+
+This document publishes the XSOC-QSIG/TQ construction, protocol, and security
+model. It does not disclose the proprietary components the production system
+depends on.
+
+| Component | Status |
+| --- | --- |
+| The TQ construction: threshold gate, linear sharing, protocol, security argument | Public, this document and the xsoc-tss-core reference |
+| The xsoc-tss-core threshold primitive: field, Shamir, reconstruction, consistency | Public, Apache-2.0 |
+| DSKAG, its wave engine and key-derivation construction, the NIE attestation internals, and the production module-SIS parameters | Proprietary trade secret. Not disclosed here. Export-controlled, ECCN 5D002.C1. Available under license from XSOC. |
+
+DSKAG, NIE, and the wave engine appear here only as black boxes. The construction
+is designed so no proprietary internal is required to understand, evaluate, or
+reproduce the threshold layer. Production capability is available under license;
+contact licensing@xsoccorp.com.
+
+Document text: CC-BY-4.0. Reference code: Apache-2.0. Neither license extends to
+the proprietary components above.
+
+## Terminology
+
+The threshold layer is information-theoretic, as proven in the security argument.
+The system as a whole is computationally secure under stated post-quantum
+assumptions, not information-theoretic or unconditional. Where this document says
+information-theoretic it refers only to the threshold-secrecy and limited-use
+results.
 
 ## 0. Purpose and positioning
 
@@ -84,7 +112,7 @@ nothing about the underlying polynomials.
 One-time bound. With m secrets, the secret vector supports at most m-1
 authorizations before A values let an adversary solve the linear system for S.
 The gate consumes a secret-vector identifier and rotates the vector before the
-bound is reached. EternaX's affine case is m = 2, one safe use per coefficient
+bound is reached. The affine case is m = 2, one safe use per coefficient
 set. We parameterize m to the deployment and bind a refresh policy to the epoch.
 
 This primitive is the promoted core: field arithmetic, Shamir split for setup and
@@ -134,11 +162,12 @@ where used. The envelope is authenticated with the 30-byte DSKAG authenticator
 from QSIG main, keyed by the member's pairwise root, and attested by NIE so the
 member device is bound and revocable through the NIE revocation listener.
 
-This is the deliberate divergence from EternaX. Their member attribution is
-SLH-DSA, asymmetric and publicly verifiable but multi-kilobyte and not revocable
-without a registry write. Ours is a 30-byte symmetric authenticator, post-quantum,
-revocable in real time, at the cost of being designated-verifier. For the public
-segment, Section 2.6 adds public verifiability without changing the envelope.
+This is a deliberate design choice. An asymmetric member attribution, such as a
+hash-based signature, is publicly verifiable but multi-kilobyte and not revocable
+without a registry write. The 30-byte symmetric authenticator here is compact,
+post-quantum, and revocable in real time, at the cost of being designated-verifier.
+For the public segment, Section 2.6 adds public verifiability without changing the
+envelope.
 
 ### 2.5 Robust reconstruction and replay
 
@@ -278,9 +307,9 @@ attribution, commitment binding, and the one-time bound. Completion gate: the
 below-threshold forgery construction fails, and only then is TQ represented as
 functional.
 
-## 7. The hard kernels, named honestly
+## 7. Open problems and engineering risks
 
-These are the parts that carry real R&D risk and must not be glossed:
+These parts carry real research and engineering risk:
 
 1. Dealerless DKG with DSKAG-seeded randomness and post-quantum commitment
    verification. The math is known; the deterministic-randomness security
@@ -295,20 +324,25 @@ These are the parts that carry real R&D risk and must not be glossed:
    expensive than a pairing proof; justified only where public verifiability is
    required.
 
-## 8. How TQ beats the EternaX dual gate
+## 8. Design rationale
 
-Same information-theoretic threshold core. The differentiators are all DSKAG and
-NIE rooted: a 30-byte member authenticator against multi-kilobyte SLH-DSA, live
-revocation and device attestation through NIE against static member keys,
-DSKAG-deterministic setup and refresh against fresh interactive secret sharing,
-and a post-quantum SIS commitment against a group-based check. The cost we own
-honestly: symmetric attribution is designated-verifier, so public verifiability
-is an optional proof layer rather than free. For the large institutional custody
-segment, where the verifier is a known settlement venue or regulator, that cost
-is not paid at all, and TQ leads on size, speed, revocation, and trust model.
+The threshold core is information-theoretic. The design choices around it favor a
+compact, post-quantum, revocable member-authentication path and a deterministic
+setup. Member attribution uses a 30-byte symmetric authenticator rather than a
+multi-kilobyte asymmetric signature, so contributions stay small. Attestation and
+revocation run through NIE, so membership is device-bound and revocable in real
+time rather than fixed at registration. Setup and refresh randomness are
+DSKAG-derived, so they are deterministic rather than requiring fresh interactive
+secret sharing each cycle. The on-chain commitment is post-quantum. The cost,
+stated plainly: symmetric attribution is designated-verifier, so public
+verifiability is an optional proof layer rather than a built-in property. Where
+the verifier is a known settlement venue or regulator that layer is not needed;
+where anonymous public verifiability is required, the transparent proof of
+Section 2.6 supplies it.
 
-## 9. Priority
+## 9. Availability
 
-The construction in Sections 2 through 4 is the next prior-art artifact. Specify
-and Zenodo-timestamp it before it appears in any post, deck, or conversation. The
-promoted primitive reference in this package is ready to become `xsoc-tss-core`.
+The xsoc-tss-core threshold primitive is published under Apache-2.0. Production
+capability, including the DSKAG-rooted and NIE-attested backends and the
+production module-SIS parameters, is available under license from XSOC. Contact
+licensing@xsoccorp.com.

@@ -1,8 +1,16 @@
 # XSOC-QSIG/TQ: Security Argument
 
-Companion to the design and implementation plan. CONTROLLED / NDA. ECCN 5D002.C1.
-CAGE 8ZXJ8. Author of record: Richard Blech, XSOC Corp. Prior-art artifact;
-Zenodo-timestamp with the plan before external disclosure.
+Companion to the design and implementation plan. Public release. XSOC Corp.
+Author: Richard Blech, ORCID 0009-0003-4540-2134. Companion to the XSOC-QSIG
+specification, https://doi.org/10.5281/zenodo.19639166.
+
+DSKAG, NIE, the wave engine, and the production module-SIS parameters are
+proprietary trade secrets, not disclosed here, export-controlled under ECCN
+5D002.C1, and available under license from XSOC. They appear only as black boxes,
+as the named assumptions A1, A2, and A3. The threshold-layer results of Sections
+4 and 5 are information-theoretic; the system as a whole is computationally secure
+under the stated post-quantum assumptions, not information-theoretic or
+unconditional. Document text: CC-BY-4.0.
 
 This document states the security goals of the threshold quorum gate as games,
 proves the information-theoretic claims, and reduces the computational claims to
