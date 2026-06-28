@@ -34,9 +34,10 @@
 //! and the results are identical; only the inner loop changes.
 
 use crate::{CommitError, LinearCommit};
-use ark_ff::{BigInteger, PrimeField};
-#[allow(unused_imports)] // UniformRand backs F::rand in new_from_rng; the unused-import lint mis-reports it through arkworks supertraits.
+#[allow(unused_imports)]
+// UniformRand backs F::rand in new_from_rng; the unused-import lint mis-reports it through arkworks supertraits.
 use ark_ff::UniformRand;
+use ark_ff::{BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use rand_core::RngCore;
 
@@ -48,7 +49,9 @@ pub struct RingElem<F: PrimeField> {
 
 impl<F: PrimeField> RingElem<F> {
     fn zero(d: usize) -> Self {
-        RingElem { coeffs: vec![F::zero(); d] }
+        RingElem {
+            coeffs: vec![F::zero(); d],
+        }
     }
 
     /// The message `s` lifted into the ring as the constant polynomial.
@@ -71,7 +74,9 @@ impl<F: PrimeField> RingElem<F> {
     /// Multiply every coefficient by a field scalar. This is how a public
     /// coefficient `c` acts on a commitment in `combine`.
     fn scale(&self, c: F) -> Self {
-        RingElem { coeffs: self.coeffs.iter().map(|a| *a * c).collect() }
+        RingElem {
+            coeffs: self.coeffs.iter().map(|a| *a * c).collect(),
+        }
     }
 
     /// Negacyclic ring multiplication: X^d = -1, so terms that wrap past degree
@@ -154,7 +159,14 @@ impl<F: PrimeField> ModuleSisCommit<F> {
             .map(|_| (0..w).map(|_| sample(rng)).collect())
             .collect();
         let a2 = (0..w).map(|_| sample(rng)).collect();
-        ModuleSisCommit { d, n, w, beta, a1, a2 }
+        ModuleSisCommit {
+            d,
+            n,
+            w,
+            beta,
+            a1,
+            a2,
+        }
     }
 
     /// Sample a fresh short opening (ternary coefficients) and return its bytes.
@@ -252,14 +264,20 @@ fn serialize_opening<F: PrimeField>(r: &[RingElem<F>]) -> Vec<u8> {
     bytes
 }
 
-fn deserialize_opening<F: PrimeField>(bytes: &[u8], w: usize, d: usize) -> Option<Vec<RingElem<F>>> {
+fn deserialize_opening<F: PrimeField>(
+    bytes: &[u8],
+    w: usize,
+    d: usize,
+) -> Option<Vec<RingElem<F>>> {
     let flat = Vec::<F>::deserialize_compressed(bytes).ok()?;
     if flat.len() != w * d {
         return None;
     }
     Some(
         flat.chunks(d)
-            .map(|chunk| RingElem { coeffs: chunk.to_vec() })
+            .map(|chunk| RingElem {
+                coeffs: chunk.to_vec(),
+            })
             .collect(),
     )
 }
@@ -290,7 +308,9 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(123456789u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening).expect("test opening is well-formed");
+        let c = s
+            .commit(value, &opening)
+            .expect("test opening is well-formed");
         assert!(s.verify(&c, value, &opening));
     }
 
@@ -299,7 +319,9 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(7u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening).expect("test opening is well-formed");
+        let c = s
+            .commit(value, &opening)
+            .expect("test opening is well-formed");
         assert!(!s.verify(&c, value + Fr::from(1u64), &opening));
     }
 
@@ -308,7 +330,9 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(42u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening).expect("test opening is well-formed");
+        let c = s
+            .commit(value, &opening)
+            .expect("test opening is well-formed");
         let other = s.sample_opening(&mut rng);
         assert!(!s.verify(&c, value, &other));
     }
@@ -329,27 +353,35 @@ mod tests {
             .collect();
 
         // commitment side
-        let terms: Vec<(Fr, Commitment<Fr>)> =
-            coeffs.iter().zip(commits.iter()).map(|(c, k)| (*c, k.clone())).collect();
+        let terms: Vec<(Fr, Commitment<Fr>)> = coeffs
+            .iter()
+            .zip(commits.iter())
+            .map(|(c, k)| (*c, k.clone()))
+            .collect();
         let combined = s.combine(&terms);
 
         // value side
-        let combined_value: Fr = coeffs
-            .iter()
-            .zip(values.iter())
-            .map(|(c, v)| *c * *v)
-            .sum();
+        let combined_value: Fr = coeffs.iter().zip(values.iter()).map(|(c, v)| *c * *v).sum();
 
         // opening side
-        let opening_terms: Vec<(Fr, &[u8])> =
-            coeffs.iter().zip(openings.iter()).map(|(c, o)| (*c, o.as_slice())).collect();
-        let combined_opening = s.combine_openings(&opening_terms).expect("test openings are well-formed");
+        let opening_terms: Vec<(Fr, &[u8])> = coeffs
+            .iter()
+            .zip(openings.iter())
+            .map(|(c, o)| (*c, o.as_slice()))
+            .collect();
+        let combined_opening = s
+            .combine_openings(&opening_terms)
+            .expect("test openings are well-formed");
 
         // the combined commitment opens to the combined value under the
         // combined opening
         assert!(s.verify(&combined, combined_value, &combined_opening));
         // and equals a direct commitment to the combined value
-        assert_eq!(combined, s.commit(combined_value, &combined_opening).expect("test opening is well-formed"));
+        assert_eq!(
+            combined,
+            s.commit(combined_value, &combined_opening)
+                .expect("test opening is well-formed")
+        );
     }
 
     // Large public coefficients push the combined opening past the norm bound.
@@ -373,7 +405,11 @@ mod tests {
             .expect("test openings are well-formed");
 
         // algebra matches: this is a true opening in the ring
-        assert_eq!(combined, s.commit(combined_value, &combined_opening).expect("test opening is well-formed"));
+        assert_eq!(
+            combined,
+            s.commit(combined_value, &combined_opening)
+                .expect("test opening is well-formed")
+        );
         // but it is over-norm, so verify refuses it
         assert!(!s.verify(&combined, combined_value, &combined_opening));
     }
@@ -383,7 +419,9 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(1u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening).expect("test opening is well-formed");
+        let c = s
+            .commit(value, &opening)
+            .expect("test opening is well-formed");
         assert!(!s.verify(&c, value, b"not a valid opening"));
         assert!(!s.verify(&c, value, &[]));
     }

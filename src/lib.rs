@@ -27,7 +27,8 @@
 
 #![forbid(unsafe_code)]
 
-#[allow(unused_imports)] // UniformRand backs F::rand in shamir_split; the unused-import lint mis-reports it through arkworks supertraits.
+#[allow(unused_imports)]
+// UniformRand backs F::rand in shamir_split; the unused-import lint mis-reports it through arkworks supertraits.
 use ark_ff::{PrimeField, UniformRand};
 use rand_core::RngCore;
 use sha2::{Digest, Sha256};
@@ -65,7 +66,9 @@ fn hash_to_field<F: PrimeField>(dst: &[u8], data: &[u8], index: u32) -> F {
 /// the coefficients are unique per operation and per secret vector.
 pub fn op_coefficients<F: PrimeField>(op_context: &[u8], m: usize) -> Vec<F> {
     const DST: &[u8] = b"XSOC-QSIG-TQ-v1:COEFF:";
-    (0..m as u32).map(|i| hash_to_field::<F>(DST, op_context, i)).collect()
+    (0..m as u32)
+        .map(|i| hash_to_field::<F>(DST, op_context, i))
+        .collect()
 }
 
 // -- Shamir split (setup and test) ----------------------------------------
@@ -104,7 +107,10 @@ pub fn deal_vector<F: PrimeField, R: RngCore>(
 ) -> Vec<MemberShares<F>> {
     let m = secrets.len();
     let mut members: Vec<MemberShares<F>> = (1..=n)
-        .map(|i| MemberShares { x: F::from(i as u64), shares: Vec::with_capacity(m) })
+        .map(|i| MemberShares {
+            x: F::from(i as u64),
+            shares: Vec::with_capacity(m),
+        })
         .collect();
     for &s in secrets {
         let col = shamir_split(s, t, n, rng);
@@ -130,7 +136,11 @@ fn eval_poly<F: PrimeField>(coeffs: &[F], x: F) -> F {
 /// vector with the public coefficients. This is the member's Shamir share of the
 /// authorization value A = sum_l coeffs[l] * s_l.
 pub fn member_contribution<F: PrimeField>(member: &MemberShares<F>, coeffs: &[F]) -> F {
-    assert_eq!(member.shares.len(), coeffs.len(), "share and coefficient length mismatch");
+    assert_eq!(
+        member.shares.len(),
+        coeffs.len(),
+        "share and coefficient length mismatch"
+    );
     member
         .shares
         .iter()
@@ -153,7 +163,10 @@ pub fn interpolate_at<F: PrimeField>(points: &[(F, F)], at: F) -> F {
                 den *= *xi - *xj;
             }
         }
-        let li = num * den.inverse().expect("distinct x-coordinates give nonzero denominator");
+        let li = num
+            * den
+                .inverse()
+                .expect("distinct x-coordinates give nonzero denominator");
         acc += *yi * li;
     }
     acc
@@ -333,11 +346,17 @@ mod tests {
             .map(|mem| (mem.x, member_contribution(mem, &coeffs)))
             .collect();
 
-        assert!(verify_consistency(&points, t), "honest quorum is consistent");
+        assert!(
+            verify_consistency(&points, t),
+            "honest quorum is consistent"
+        );
 
         // Corrupt one share past the first t and confirm detection.
         let last = points.len() - 1;
         points[last].1 += Fr::from(1u64);
-        assert!(!verify_consistency(&points, t), "a corrupted share is detected");
+        assert!(
+            !verify_consistency(&points, t),
+            "a corrupted share is detected"
+        );
     }
 }
