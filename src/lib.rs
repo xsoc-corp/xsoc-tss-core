@@ -184,6 +184,29 @@ pub fn verify_consistency<F: PrimeField>(points: &[(F, F)], t: usize) -> bool {
 
 // -- Post-quantum on-chain binding (the seam) ------------------------------
 
+/// Failure mode for committing under caller-supplied opening bytes.
+///
+/// `commit` and `combine_openings` take opening bytes from the caller, so a
+/// malformed opening is an ordinary input error. They return this error rather
+/// than panicking, matching how `verify` already turns the same deserialization
+/// failure into a rejection.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CommitError {
+    /// Opening bytes did not deserialize to the expected width-`w` vector of
+    /// degree-`d` ring elements: wrong length, or not a canonical encoding.
+    MalformedOpening,
+}
+
+impl core::fmt::Display for CommitError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            CommitError::MalformedOpening => f.write_str("malformed opening bytes"),
+        }
+    }
+}
+
+impl std::error::Error for CommitError {}
+
 /// Linearly homomorphic, post-quantum commitment to the secret vector.
 ///
 /// The gate records `commit(s_l)` for each secret at setup. For an operation with
@@ -203,7 +226,10 @@ pub trait LinearCommit<F: PrimeField> {
     type Commitment: Clone + PartialEq;
 
     /// Commit to a single field element with its opening randomness.
-    fn commit(&self, value: F, opening: &[u8]) -> Self::Commitment;
+    ///
+    /// The opening is caller-supplied bytes, so a malformed opening returns
+    /// [`CommitError::MalformedOpening`] rather than panicking.
+    fn commit(&self, value: F, opening: &[u8]) -> Result<Self::Commitment, CommitError>;
 
     /// Linear combination of commitments under public scalars, equal to the
     /// commitment of the same linear combination of the committed values.

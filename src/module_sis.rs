@@ -33,7 +33,7 @@
 //! production instance replaces it with an NTT over a friendly q. The interface
 //! and the results are identical; only the inner loop changes.
 
-use crate::LinearCommit;
+use crate::{CommitError, LinearCommit};
 use ark_ff::{BigInteger, PrimeField};
 #[allow(unused_imports)] // UniformRand backs F::rand in new_from_rng; the unused-import lint mis-reports it through arkworks supertraits.
 use ark_ff::UniformRand;
@@ -170,16 +170,16 @@ impl<F: PrimeField> ModuleSisCommit<F> {
     /// Combine opening bytes the same way `combine` combines commitments, so the
     /// result opens the combined commitment. The caller holds the openings; the
     /// trait's `combine` only sees commitments.
-    pub fn combine_openings(&self, terms: &[(F, &[u8])]) -> Vec<u8> {
+    pub fn combine_openings(&self, terms: &[(F, &[u8])]) -> Result<Vec<u8>, CommitError> {
         let mut acc: Vec<RingElem<F>> = vec![RingElem::zero(self.d); self.w];
         for (c, bytes) in terms {
             let r = deserialize_opening::<F>(bytes, self.w, self.d)
-                .expect("combine_openings: malformed opening");
+                .ok_or(CommitError::MalformedOpening)?;
             for j in 0..self.w {
                 acc[j] = acc[j].add(&r[j].scale(*c));
             }
         }
-        serialize_opening(&acc)
+        Ok(serialize_opening(&acc))
     }
 
     fn commit_internal(&self, value: F, r: &[RingElem<F>]) -> Commitment<F> {
@@ -204,10 +204,10 @@ impl<F: PrimeField> ModuleSisCommit<F> {
 impl<F: PrimeField> LinearCommit<F> for ModuleSisCommit<F> {
     type Commitment = Commitment<F>;
 
-    fn commit(&self, value: F, opening: &[u8]) -> Self::Commitment {
+    fn commit(&self, value: F, opening: &[u8]) -> Result<Self::Commitment, CommitError> {
         let r = deserialize_opening::<F>(opening, self.w, self.d)
-            .expect("commit: malformed opening");
-        self.commit_internal(value, &r)
+            .ok_or(CommitError::MalformedOpening)?;
+        Ok(self.commit_internal(value, &r))
     }
 
     fn combine(&self, terms: &[(F, Self::Commitment)]) -> Self::Commitment {
@@ -290,7 +290,7 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(123456789u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening);
+        let c = s.commit(value, &opening).expect("test opening is well-formed");
         assert!(s.verify(&c, value, &opening));
     }
 
@@ -299,7 +299,7 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(7u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening);
+        let c = s.commit(value, &opening).expect("test opening is well-formed");
         assert!(!s.verify(&c, value + Fr::from(1u64), &opening));
     }
 
@@ -308,7 +308,7 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(42u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening);
+        let c = s.commit(value, &opening).expect("test opening is well-formed");
         let other = s.sample_opening(&mut rng);
         assert!(!s.verify(&c, value, &other));
     }
@@ -325,7 +325,7 @@ mod tests {
         let commits: Vec<Commitment<Fr>> = values
             .iter()
             .zip(openings.iter())
-            .map(|(v, o)| s.commit(*v, o))
+            .map(|(v, o)| s.commit(*v, o).expect("test opening is well-formed"))
             .collect();
 
         // commitment side
@@ -343,13 +343,13 @@ mod tests {
         // opening side
         let opening_terms: Vec<(Fr, &[u8])> =
             coeffs.iter().zip(openings.iter()).map(|(c, o)| (*c, o.as_slice())).collect();
-        let combined_opening = s.combine_openings(&opening_terms);
+        let combined_opening = s.combine_openings(&opening_terms).expect("test openings are well-formed");
 
         // the combined commitment opens to the combined value under the
         // combined opening
         assert!(s.verify(&combined, combined_value, &combined_opening));
         // and equals a direct commitment to the combined value
-        assert_eq!(combined, s.commit(combined_value, &combined_opening));
+        assert_eq!(combined, s.commit(combined_value, &combined_opening).expect("test opening is well-formed"));
     }
 
     // Large public coefficients push the combined opening past the norm bound.
@@ -362,17 +362,18 @@ mod tests {
         let v1 = Fr::from(6u64);
         let o0 = s.sample_opening(&mut rng);
         let o1 = s.sample_opening(&mut rng);
-        let c0 = s.commit(v0, &o0);
-        let c1 = s.commit(v1, &o1);
+        let c0 = s.commit(v0, &o0).expect("test opening is well-formed");
+        let c1 = s.commit(v1, &o1).expect("test opening is well-formed");
 
         let big = Fr::from(1_000_000u64); // far above BETA
         let combined = s.combine(&[(big, c0), (Fr::from(1u64), c1)]);
         let combined_value = big * v0 + v1;
-        let combined_opening =
-            s.combine_openings(&[(big, o0.as_slice()), (Fr::from(1u64), o1.as_slice())]);
+        let combined_opening = s
+            .combine_openings(&[(big, o0.as_slice()), (Fr::from(1u64), o1.as_slice())])
+            .expect("test openings are well-formed");
 
         // algebra matches: this is a true opening in the ring
-        assert_eq!(combined, s.commit(combined_value, &combined_opening));
+        assert_eq!(combined, s.commit(combined_value, &combined_opening).expect("test opening is well-formed"));
         // but it is over-norm, so verify refuses it
         assert!(!s.verify(&combined, combined_value, &combined_opening));
     }
@@ -382,8 +383,43 @@ mod tests {
         let (s, mut rng) = scheme();
         let value = Fr::from(1u64);
         let opening = s.sample_opening(&mut rng);
-        let c = s.commit(value, &opening);
+        let c = s.commit(value, &opening).expect("test opening is well-formed");
         assert!(!s.verify(&c, value, b"not a valid opening"));
         assert!(!s.verify(&c, value, &[]));
+    }
+
+    // The companion to the test above, for the two functions that used to panic.
+    // commit and combine_openings must surface malformed opening bytes as a typed
+    // error, the same failure verify turns into `false`, never a panic.
+    #[test]
+    fn commit_and_combine_openings_reject_malformed() {
+        let (s, mut rng) = scheme();
+        let value = Fr::from(1u64);
+
+        assert_eq!(
+            s.commit(value, b"not a valid opening"),
+            Err(CommitError::MalformedOpening)
+        );
+        assert_eq!(s.commit(value, &[]), Err(CommitError::MalformedOpening));
+        assert_eq!(s.commit(value, &[0u8]), Err(CommitError::MalformedOpening));
+
+        assert_eq!(
+            s.combine_openings(&[(Fr::from(1u64), b"garbage" as &[u8])]),
+            Err(CommitError::MalformedOpening)
+        );
+        assert_eq!(
+            s.combine_openings(&[(Fr::from(1u64), &[][..])]),
+            Err(CommitError::MalformedOpening)
+        );
+
+        // A malformed term after a well-formed one is still rejected, not panicked.
+        let good = s.sample_opening(&mut rng);
+        assert_eq!(
+            s.combine_openings(&[
+                (Fr::from(1u64), good.as_slice()),
+                (Fr::from(1u64), b"garbage" as &[u8]),
+            ]),
+            Err(CommitError::MalformedOpening)
+        );
     }
 }
